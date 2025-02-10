@@ -1,0 +1,63 @@
+[
+    {
+      "Sno": 1,
+      "Item": "Laptop",
+      "Description": "Dell Inspiron 15",
+      "HSN Code": "84713010",
+      "Quantity": 2,
+      "UOM": "Nos",
+      "Value": 120000,
+      "Purpose": "Office Use"
+    },
+    {
+      "Sno": 2,
+      "Item": "Mouse",
+      "Description": "Logitech Wireless Mouse",
+      "HSN Code": "84716060",
+      "Quantity": 5,
+      "UOM": "Nos",
+      "Value": 5000,
+      "Purpose": "Workstations"
+    },
+    {
+      "Sno": 3,
+      "Item": "Printer",
+      "Description": "HP LaserJet Pro",
+      "HSN Code": "84433290",
+      "Quantity": 1,
+      "UOM": "Nos",
+      "Value": 15000,
+      "Purpose": "Office Printing"
+    },
+    {
+      "Sno": 4,
+      "Item": "Monitor",
+      "Description": "Samsung 24-inch LED",
+      "HSN Code": "85285200",
+      "Quantity": 3,
+      "UOM": "Nos",
+      "Value": 45000,
+      "Purpose": "Workstations"
+    },
+    {
+      "Sno": 5,
+      "Item": "Keyboard",
+      "Description": "Mechanical Keyboard",
+      "HSN Code": "84716040",
+      "Quantity": 4,
+      "UOM": "Nos",
+      "Value": 8000,
+      "Purpose": "Office Use"
+    },
+    {
+      "Sno": 6,
+      "Item": "External Hard Drive",
+      "Description": "Seagate 1TB HDD",
+      "HSN Code": "84717020",
+      "Quantity": 2,
+      "UOM": "Nos",
+      "Value": 10000,
+      "Purpose": "Data Backup"
+    }
+  ]
+  

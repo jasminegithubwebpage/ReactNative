@@ -1,22 +1,20 @@
-import { StyleSheet, Text, View } from 'react-native';
-import {Homescreen} from './screens/Homescreen';
-import { createStackNavigator } from "@react-navigation/stack";
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
+import Homescreen from './screens/Homescreen';
+import GatepassScreen from './screens/GatepassScreen';
+import DataScreen from './screens/DataScreen';
+
+const Stack = createStackNavigator();
+
 export default function App() {
   return (
-    <View style={styles.container}>
-       <Stack.Navigator initialRouteName="Home">
-       <Stack.Screen name="Home" component={Homescreen} options={{headerShown:true}} />
-
-       </Stack.Navigator>
-    </View>
+    <NavigationContainer>
+      <Stack.Navigator>
+        <Stack.Screen name="GatePass" component={Homescreen} />
+        <Stack.Screen name="GatepassScreen" component={GatepassScreen} />
+        <Stack.Screen name="DataScreen" component={DataScreen} />
+      </Stack.Navigator>
+    </NavigationContainer>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
