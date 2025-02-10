@@ -4,7 +4,7 @@ import React from "react";
 import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import HomeScreen from "./screens/HomeScreen";
-import CameraScreen from "./screens/CameraScreen";
+// import CameraScreen from "./screens/CameraScreen";
 import DetailsScreen from "./screens/DetailsScreen";
 
 const Stack = createStackNavigator();
@@ -14,7 +14,7 @@ export default function App() {
    
       <Stack.Navigator initialRouteName="BreakDownClosure">
         <Stack.Screen name="BreakDownClosure" component={HomeScreen} options={{headerShown:true}} />
-        <Stack.Screen name="Camera" component={CameraScreen} />
+        {/* <Stack.Screen name="Camera" component={CameraScreen} /> */}
         <Stack.Screen name="Details" component={DetailsScreen} />
       </Stack.Navigator>
   
