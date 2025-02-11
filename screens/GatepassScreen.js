@@ -40,7 +40,7 @@ const GatepassScreen = () => {
       
       <TouchableOpacity 
         style={styles.button} 
-        onPress={() => navigation.navigate('DataScreen', { inputText })}>
+        onPress={() => navigation.navigate('DetailScreen', { inputText })}>
         <Text style={styles.buttonText}>Submit</Text>
       </TouchableOpacity>
       
