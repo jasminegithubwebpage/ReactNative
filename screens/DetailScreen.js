@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, StyleSheet, ActivityIndicator, TextInput, Button, TouchableOpacity, Platform } from 'react-native';
+import { 
+  View, Text, TextInput, FlatList, Button, TouchableOpacity, 
+  KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard ,ActivityIndicator
+} from "react-native";
 import DateTimePicker from '@react-native-community/datetimepicker';
 
 const DetailScreen = ({ route }) => {
@@ -77,53 +80,74 @@ const DetailScreen = ({ route }) => {
   };
 
   const handleSubmit = () => {
+    console.log(data);
     if (!data) return;
-  
+
     let requestBody = {
-      t_dcnum: inputText, // DC Number
+        t_dcnum: inputText, // DC Number
     };
-  
-    let count = 1; // To track the index for t_retqty2, t_retqty3, etc.
-  
+
+    let count = 1; // Track valid return items
+    let allReturned = true; // Flag to check if all quantities are returned
+
     Object.keys(returnData).forEach((key) => {
-      if (key.startsWith("retqty_") || key.startsWith("retdt_")) {
-        const index = key.split("_")[1]; // Extract index from keys like retqty_1, retdt_1, etc.
-        const qtyKey = `retqty_${index}`;
-        const dateKey = `retdt_${index}`;
-  
-        if (count === 1) {
-          // First entry should be without a number
-          requestBody["t_retqty"] = returnData[qtyKey] || "0";
-          requestBody["t_retdate"] = returnData[dateKey] || new Date().toISOString();
-        } else {
-          // Subsequent entries should have a number (t_retqty2, t_retqty3, ...)
-          requestBody[`t_retqty${count}`] = returnData[qtyKey] || "0";
-          requestBody[`t_retdate${count}`] = returnData[dateKey] || new Date().toISOString();
+        if (key.startsWith("retqty_")) {
+            const index = key.split("_")[1];
+            const qtyKey = `retqty_${index}`;
+            const dateKey = `retdt_${index}`;
+
+            let returnQty = parseInt(returnData[qtyKey] || 0); // Convert to number
+            let originalQty = parseInt(data[`Qty_${index}`] || 0); // Get original quantity
+
+            // Skip if returnQty is 0
+            if (returnQty === 0 || isNaN(returnQty)) {
+                allReturned = false;
+                return;
+            }
+
+            // Check if all items are fully returned
+            if (returnQty !== originalQty) {
+                allReturned = false;
+            }
+
+            if (count === 1) {
+                requestBody["t_retqty"] = String(returnQty); // Convert to string
+                requestBody["t_retdate"] = String(returnData[dateKey] || new Date().toISOString().split("T")[0]);
+            } else {
+                requestBody[`t_retqty${count}`] = String(returnQty);
+                requestBody[`t_retdate${count}`] = String(returnData[dateKey] || new Date().toISOString().split("T")[0]);
+            }
+            count++;
         }
-        count++; // Increase count for the next set
-      }
     });
-  
+
+    // Change status to 'Closed' if all items are returned
+    if (allReturned) {
+        requestBody["t_dcstatus"] = "2"; // Convert to string
+    }
+
     console.log("Final Request Body:", requestBody);
-  
+
     // Make API request
     fetch("http://192.168.101.13:5779/update_dc_details", {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(requestBody),
     })
-      .then((response) => response.json())
-      .then((result) => {
+    .then((response) => response.json())
+    .then((result) => {
         console.log("API Response:", result);
-        alert("Return data submitted successfully!");
-      })
-      .catch((error) => {
+        setReturnData({});
+    })
+    .catch((error) => {
         console.error("Error submitting data:", error);
         alert("Failed to submit return data.");
-      });
-  };
+    });
+};
+
+
   
 
   if (loading) {
@@ -143,117 +167,107 @@ const DetailScreen = ({ route }) => {
   }
 
   return (
-    <View style={styles.container}>
-      {/* Dispatch Details */}
-      <View style={styles.dispatchCard}>
-        <Text style={styles.title}>Dispatch Details</Text>
-        <Text style={styles.label}>Name: <Text style={styles.value}>{data.t_name}</Text></Text>
-        <Text style={styles.label}>Address: <Text style={styles.value}>{`${data.t_ln02}, ${data.t_ln03}, ${data.t_ccty}, ${data.t_cste}`}</Text></Text>
-        <Text style={styles.label}>Status: <Text style={[styles.status, { color: data.t_dcstatus === 1 ? 'green' : data.t_dcstatus === 2 ? 'red' : 'gray' }]}>{statusMapping[data.t_dcstatus]}</Text></Text>
-      </View>
-
-      {/* Item List */}
-      <FlatList
-        data={Object.keys(data)
-          .filter(key => key.startsWith('item_') && data[key] && data[`Qty_${key.split('_')[1]}`] > 0)
-          .map(key => {
-            const index = key.split('_')[1];
-
-            return {
-              index, // Keep index reference
-              item: data[key].trim(),
-              description: data[`item_desc_${index}`],
-              qty: data[`Qty_${index}`],
-              value: data[`val_${index}`],
-              remark: data[`remark_${index}`],
-              uom: uomMapping[data[`uom_${index}`]] || 'UNKNOWN',
-              hsn: data[`hsn_${index}`] || 'N/A',
-              returnQty: returnData[`retqty_${index}`] || '',
-              returnDate: returnData[`retdt_${index}`] || ''
-            };
-          })
-        }
-        keyExtractor={(item, index) => index.toString()}
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            <Text style={styles.itemTitle}>{item.item}</Text>
-            <Text style={styles.description}>{item.description}</Text>
-            <Text style={styles.label}>Quantity: <Text style={styles.value}>{item.qty} {item.uom}</Text></Text>
-            <Text style={styles.label}>Value: <Text style={styles.value}>₹{item.value}</Text></Text>
-            <Text style={styles.label}>Remark: <Text style={styles.value}>{item.remark}</Text></Text>
-            <Text style={styles.label}>HSN Code: <Text style={styles.value}>{item.hsn}</Text></Text>
-
-            {/* Return Quantity Input */}
-            <Text style={styles.label}>Return Quantity:</Text>
-            <TextInput
-              style={styles.input}
-              keyboardType="numeric"
-              value={String(item.returnQty)}
-              onChangeText={text => handleReturnChange(item.index, 'retqty', text)}
-            />
-
-            {/* Return Date Picker */}
-            <Text style={styles.label}>Return Date:</Text>
-            <TouchableOpacity onPress={() => openDatePicker(item.index)} style={styles.dateInput}>
-              <Text>{returnData[`retdt_${item.index}`]}</Text>
-            </TouchableOpacity>
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === "ios" ? "padding" : "height"} 
+        style={{ flex: 1 }}
+      >
+        <View style={styles.container}>
+          {/* Dispatch Details */}
+          <View style={styles.dispatchCard}>
+            <Text style={styles.title}>Dispatch Details</Text>
+            <Text style={styles.label}>Name: <Text style={styles.value}>{data.t_name}</Text></Text>
+            <Text style={styles.label}>Address: <Text style={styles.value}>{`${data.t_ln02}, ${data.t_ln03}, ${data.t_ccty}, ${data.t_cste}`}</Text></Text>
+            <Text style={styles.label}>
+              Status: <Text style={[styles.status, { color: data.t_dcstatus === 1 ? "green" : data.t_dcstatus === 2 ? "red" : "gray" }]}>
+                {statusMapping[data.t_dcstatus]}
+              </Text>
+            </Text>
           </View>
-        )}
-      />
 
-      {/* Submit Button */}
-      <Button title="Submit" onPress={handleSubmit} color="#007bff" />
+          {/* Item List */}
+          <FlatList 
+             keyboardShouldPersistTaps="handled"
+             nestedScrollEnabled={true}
+             scrollEnabled={true}
+             removeClippedSubviews={false} // Prevents cutting off items
+             contentContainerStyle={{ paddingBottom: 100 }}
+            data={Object.keys(data)
+              .filter(key => key.startsWith("item_") && data[key] && data[`Qty_${key.split("_")[1]}`] > 0)
+              .map(key => {
+                const index = key.split("_")[1];
+                return {
+                  index, // Keep index reference
+                  item: data[key].trim(),
+                  description: data[`item_desc_${index}`],
+                  qty: data[`Qty_${index}`],
+                  value: data[`val_${index}`],
+                  remark: data[`remark_${index}`],
+                  uom: uomMapping[data[`uom_${index}`]] || "UNKNOWN",
+                  hsn: data[`hsn_${index}`] || "N/A",
+                  returnQty: returnData[`retqty_${index}`] || "",
+                  returnDate: returnData[`retdt_${index}`] || "",
+                };
+              })
+            }
+            keyExtractor={(item, index) => index.toString()}
+            renderItem={({ item }) => (
+              <View style={styles.card}>
+                <Text style={styles.itemTitle}>{item.item}</Text>
+                <Text style={styles.description}>{item.description}</Text>
+                <Text style={styles.label}>Quantity: <Text style={styles.value}>{item.qty} {item.uom}</Text></Text>
+                <Text style={styles.label}>Value: <Text style={styles.value}>₹{item.value}</Text></Text>
+                <Text style={styles.label}>Remark: <Text style={styles.value}>{item.remark}</Text></Text>
+                <Text style={styles.label}>HSN Code: <Text style={styles.value}>{item.hsn}</Text></Text>
 
-      {/* Date Picker Component */}
-      {showDatePicker && (
-        <DateTimePicker
-          value={new Date()}
-          mode="date"
-          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-          onChange={handleDateChange}
-        />
-      )}
-    </View>
+                {/* Return Quantity Input */}
+                <Text style={styles.label}>Return Quantity:</Text>
+                <TextInput
+                  style={styles.input}
+                  keyboardType="numeric"
+                  value={String(item.returnQty)}
+                  onChangeText={text => handleReturnChange(item.index, "retqty", text)}
+                />
+
+                {/* Return Date Picker */}
+                <Text style={styles.label}>Return Date:</Text>
+                <TouchableOpacity onPress={() => openDatePicker(item.index)} style={styles.dateInput} activeOpacity={1}>
+                  <Text>{returnData[`retdt_${item.index}`] || "Select Date"}</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          />
+
+          {/* Submit Button */}
+          <Button title="Submit" onPress={() => handleSubmit()} color="#007bff" />
+
+          {/* Date Picker Component */}
+          {showDatePicker && (
+            <DateTimePicker
+              value={new Date()}
+              mode="date"
+              display={Platform.OS === "ios" ? "spinner" : "default"}
+              onChange={handleDateChange}
+            />
+          )}
+        </View>
+      </KeyboardAvoidingView>
+    </TouchableWithoutFeedback>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f5f5f5',
-    padding: 10
-  },
-  dispatchCard: {
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 10,
-    elevation: 3,
-    marginBottom: 10
-  },
-  card: {
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 10,
-    elevation: 3,
-    marginBottom: 10
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
-    padding: 5,
-    marginTop: 5,
-    marginBottom: 10,
-  },
-  dateInput: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 5,
-    padding: 10,
-    marginTop: 5,
-    marginBottom: 10,
-    backgroundColor: '#fff'
-  },
-});
+const styles = {
+  container: { flex: 1, padding: 20 },
+  dispatchCard: { padding: 10, backgroundColor: "#f9f9f9", borderRadius: 5, marginBottom: 10 },
+  title: { fontSize: 18, fontWeight: "bold", marginBottom: 5 },
+  label: { fontSize: 14, fontWeight: "bold", marginTop: 5 },
+  value: { fontSize: 14, fontWeight: "normal" },
+  status: { fontSize: 14, fontWeight: "bold" },
+  card: { backgroundColor: "#fff", padding: 10, borderRadius: 5, marginBottom: 10, elevation: 2 },
+  itemTitle: { fontSize: 16, fontWeight: "bold" },
+  description: { fontSize: 14, color: "#666" },
+  input: { borderBottomWidth: 1, borderColor: "#ccc", padding: 5, fontSize: 14 },
+  dateInput: { padding: 10, backgroundColor: "#eee", borderRadius: 5, marginTop: 5 },
+};
 
 export default DetailScreen;
