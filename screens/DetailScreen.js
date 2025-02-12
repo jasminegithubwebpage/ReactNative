@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   View, Text, TextInput, FlatList, Button, TouchableOpacity, 
-  KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard ,ActivityIndicator
+  KeyboardAvoidingView, Platform, TouchableWithoutFeedback, Keyboard ,ActivityIndicator,ScrollView
 } from "react-native";
 import DateTimePicker from '@react-native-community/datetimepicker';
 
@@ -12,10 +12,12 @@ const DetailScreen = ({ route }) => {
   const [returnData, setReturnData] = useState({});
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(null);
+  const [previousReturns, setPreviousReturns] = useState([]); // Store returned items
 
   // UOM Mapping
   const uomMapping = { 1: 'NOS', 2: 'KGS', 3: 'SET', 4: 'LTS', 5: 'MTS' };
   const statusMapping = { 1: 'Open', 2: 'Closed', 3: 'Canceled' };
+
 
   useEffect(() => {
     if (inputText) {
@@ -26,41 +28,56 @@ const DetailScreen = ({ route }) => {
             const fetchedData = responseData[0];
             setData(fetchedData);
   
-            // Initialize returnData only for valid items
-            const newReturnData = {};
-            Object.keys(fetchedData).forEach(key => {
-              if (key.startsWith('item_')) {
-                const index = key.split('_')[1];
+            let newReturnData = {};
+            let prevReturns = [];
   
-                // Only initialize return data if the quantity is greater than zero
-                if (fetchedData[`Qty_${index}`] > 0) {
-                  newReturnData[`retdt_${index}`] = new Date().toISOString().split('T')[0]; // Default date
-                  newReturnData[`retqty_${index}`] = ''; // Empty return quantity
+            Object.keys(fetchedData).forEach(key => {
+              if (key.startsWith("item_")) {
+                const index = key.split("_")[1];
+                const qty = fetchedData[`Qty_${index}`];
+                const retQty = fetchedData[`retqty_${index}`] || ""; // Restore previous return qty
+                const retDate = fetchedData[`retdt_${index}`] || ""; // Restore previous return date
+  
+                if (qty > 0) {
+                  newReturnData[`retqty_${index}`] = retQty; // Use previous value or empty string
+                  newReturnData[`retdt_${index}`] = retDate !== "1753-01-01T00:00:00" ? retDate.split("T")[0] : ""; // Format date
+  
+                  if (retQty > 0 && retDate !== "1753-01-01T00:00:00") {
+                    prevReturns.push({
+                      item: fetchedData[key].trim(),
+                      description: fetchedData[`item_desc_${index}`],
+                      returnQty: retQty,
+                      returnDate: retDate.split("T")[0],
+                    });
+                  }
                 }
               }
             });
   
-            setReturnData(newReturnData);
+            setReturnData(newReturnData); // Ensure return data is correctly restored
+            setPreviousReturns(prevReturns);
           } else {
             setData(null);
           }
           setLoading(false);
         })
         .catch(error => {
-          console.error('Error fetching data:', error);
+          console.error("Error fetching data:", error);
           setLoading(false);
         });
     }
   }, [inputText]);
+  
   
 
   // Handle return quantity and date changes
   const handleReturnChange = (index, key, value) => {
     setReturnData(prevState => ({
       ...prevState,
-      [`${key}_${index}`]: key === 'retqty' ? String(Number(value)) : value // Ensure numeric input is formatted correctly
+      [`${key}_${index}`]: key === "retqty" ? String(Number(value) || "") : value // Ensure numeric input
     }));
   };
+  
 
   // Open DatePicker for a specific item
   const openDatePicker = (index) => {
@@ -166,91 +183,70 @@ const DetailScreen = ({ route }) => {
     );
   }
 
+
   return (
     <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === "ios" ? "padding" : "height"} 
-        style={{ flex: 1 }}
-      >
-        <View style={styles.container}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+        
+          
           {/* Dispatch Details */}
           <View style={styles.dispatchCard}>
             <Text style={styles.title}>Dispatch Details</Text>
             <Text style={styles.label}>Name: <Text style={styles.value}>{data.t_name}</Text></Text>
             <Text style={styles.label}>Address: <Text style={styles.value}>{`${data.t_ln02}, ${data.t_ln03}, ${data.t_ccty}, ${data.t_cste}`}</Text></Text>
             <Text style={styles.label}>
-              Status: <Text style={[styles.status, { color: data.t_dcstatus === 1 ? "green" : data.t_dcstatus === 2 ? "red" : "gray" }]}>
+              Status: 
+              <Text style={[styles.status, { color: data.t_dcstatus === 1 ? "green" : data.t_dcstatus === 2 ? "red" : "gray" }]}>
                 {statusMapping[data.t_dcstatus]}
               </Text>
             </Text>
           </View>
+          <ScrollView 
+          contentContainerStyle={{ flexGrow: 1, padding: 10 }} 
+          showsVerticalScrollIndicator={true} 
+          persistentScrollbar={true} // This keeps the scroll indicator always visible
+        >
+                  {/* Item List (Replaces FlatList with View) */}
+          {Object.keys(data)
+            .filter(key => key.startsWith("item_") && data[key] && data[`Qty_${key.split("_")[1]}`] > 0)
+            .map((key) => {
+              const index = key.split("_")[1];
+              return (
+                <View key={index} style={styles.card}>
+                  <Text style={styles.itemTitle}>{data[key].trim()}</Text>
+                  <Text style={styles.description}>{data[`item_desc_${index}`]}</Text>
+                  <Text style={styles.label}>Quantity: <Text style={styles.value}>{data[`Qty_${index}`]} {uomMapping[data[`uom_${index}`]] || "UNKNOWN"}</Text></Text>
+                  <Text style={styles.label}>Value: <Text style={styles.value}>₹{data[`val_${index}`]}</Text></Text>
+                  <Text style={styles.label}>Remark: <Text style={styles.value}>{data[`remark_${index}`]}</Text></Text>
+                  <Text style={styles.label}>HSN Code: <Text style={styles.value}>{data[`hsn_${index}`] || "N/A"}</Text></Text>
 
-          {/* Item List */}
-          <FlatList 
-             keyboardShouldPersistTaps="handled"
-             nestedScrollEnabled={true}
-             scrollEnabled={true}
-             removeClippedSubviews={false} // Prevents cutting off items
-             contentContainerStyle={{ paddingBottom: 100 }}
-            data={Object.keys(data)
-              .filter(key => key.startsWith("item_") && data[key] && data[`Qty_${key.split("_")[1]}`] > 0)
-              .map(key => {
-                const index = key.split("_")[1];
-                return {
-                  index, // Keep index reference
-                  item: data[key].trim(),
-                  description: data[`item_desc_${index}`],
-                  qty: data[`Qty_${index}`],
-                  value: data[`val_${index}`],
-                  remark: data[`remark_${index}`],
-                  uom: uomMapping[data[`uom_${index}`]] || "UNKNOWN",
-                  hsn: data[`hsn_${index}`] || "N/A",
-                  returnQty: returnData[`retqty_${index}`] || "",
-                  returnDate: returnData[`retdt_${index}`] || "",
-                };
-              })
-            }
-            keyExtractor={(item, index) => index.toString()}
-            renderItem={({ item }) => (
-              <View style={styles.card}>
-                <Text style={styles.itemTitle}>{item.item}</Text>
-                <Text style={styles.description}>{item.description}</Text>
-                <Text style={styles.label}>Quantity: <Text style={styles.value}>{item.qty} {item.uom}</Text></Text>
-                <Text style={styles.label}>Value: <Text style={styles.value}>₹{item.value}</Text></Text>
-                <Text style={styles.label}>Remark: <Text style={styles.value}>{item.remark}</Text></Text>
-                <Text style={styles.label}>HSN Code: <Text style={styles.value}>{item.hsn}</Text></Text>
+                  {/* Return Quantity Input */}
+                  <Text style={styles.label}>Return Quantity:</Text>
+                  <TextInput
+                    style={styles.input}
+                    keyboardType="numeric"
+                    value={String(returnData[`retqty_${index}`] || "")}
+                    onChangeText={(text) => handleReturnChange(index, "retqty", text)}
+                  />
 
-                {/* Return Quantity Input */}
-                <Text style={styles.label}>Return Quantity:</Text>
-                <TextInput
-                  style={styles.input}
-                  keyboardType="numeric"
-                  value={String(item.returnQty)}
-                  onChangeText={text => handleReturnChange(item.index, "retqty", text)}
-                />
-
-                {/* Return Date Picker */}
-                <Text style={styles.label}>Return Date:</Text>
-                <TouchableOpacity onPress={() => openDatePicker(item.index)} style={styles.dateInput} activeOpacity={1}>
-                  <Text>{returnData[`retdt_${item.index}`] || "Select Date"}</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-          />
+                  {/* Return Date Picker */}
+                  <Text style={styles.label}>Return Date:</Text>
+                  <TouchableOpacity onPress={() => openDatePicker(index)} style={styles.dateInput} activeOpacity={1}>
+                    <Text>{returnData[`retdt_${index}`] || "Select Date"}</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })
+          }
 
           {/* Submit Button */}
-          <Button title="Submit" onPress={() => handleSubmit()} color="#007bff" />
-
-          {/* Date Picker Component */}
-          {showDatePicker && (
-            <DateTimePicker
-              value={new Date()}
-              mode="date"
-              display={Platform.OS === "ios" ? "spinner" : "default"}
-              onChange={handleDateChange}
-            />
+          {data.t_dcstatus === 1 && (
+            <View style={{ marginVertical: 20 }}>
+              <Button title="Submit" onPress={handleSubmit} color="#007bff" />
+            </View>
           )}
-        </View>
+
+        </ScrollView>
       </KeyboardAvoidingView>
     </TouchableWithoutFeedback>
   );
@@ -269,5 +265,6 @@ const styles = {
   input: { borderBottomWidth: 1, borderColor: "#ccc", padding: 5, fontSize: 14 },
   dateInput: { padding: 10, backgroundColor: "#eee", borderRadius: 5, marginTop: 5 },
 };
+
 
 export default DetailScreen;

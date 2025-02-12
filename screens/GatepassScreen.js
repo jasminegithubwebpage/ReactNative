@@ -10,7 +10,17 @@ const GatepassScreen = () => {
   const [cameraVisible, setCameraVisible] = useState(false);
   const [scanned, setScanned] = useState(false);
   const [inputText, setInputText] = useState("");
+  const [useExternalScanner, setUseExternalScanner] = useState(false);
 
+  const handleExternalScan = (data) => {
+     setInputText(data);
+  
+  
+      navigation.navigate("DetailScreen", { inputText: data }); // Navigate with scanned breakdown number
+    
+  
+   
+  };
   const handleBarcodeScanned = ({ data }) => {
     setScanned(true);
     setCameraVisible(false);
@@ -50,7 +60,14 @@ const GatepassScreen = () => {
           barcodeScannerSettings={{ barcodeTypes: ["qr", "pdf417"] }}
           style={styles.camera}
         />
+        
       )}
+       <TextInput
+  style={{ height: 0, width: 0, opacity: 0 }} // Hidden input field
+  autoFocus={useExternalScanner} // Auto-focus if external scanner is active
+  onChangeText={handleExternalScan} // Handle scanner input
+  placeholder="Scan QR Code..."
+/>
     </View>
   );
 };
